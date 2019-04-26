@@ -10,8 +10,8 @@ add_image(){
 	echo "Server wordt aangemaakt..."
 	gcloud compute instances create deploymentserver --machine-type=g1-small --image-project=ubuntu-os-cloud --image-family=ubuntu-1804-lts --zone=europe-west1-b --metadata-from-file=startup-script=/home/jari/coi-git/startup.sh &> /home/jari/coi-git/deploy.log
 	
-	#echo "ten seconds to finish..."
-	#sleep 10
+	echo "ten seconds to finish..."
+	sleep 10
 	echo "Applicatie wordt gedeployd..."
 	#gcloud compute ssh deploymentserver --command "sudo dotnet publish /city-of-ideas" &>> deploy.log
 	#gcloud compute ssh deploymentserver --command "sudo cp -a /city-of-ideas/COI.UI-MVC/bin/Debug/netcoreapp2.1/publish /var/coi" &>> deploy.log

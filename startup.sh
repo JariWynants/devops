@@ -7,7 +7,9 @@
 #Install dotnetcore runtime for deployment of .NET application
 #-------------------------------------------------------------
 touch /startup.log
+export DOTNET_CLI_HOME=/ &>> /startup.log
 
+echo $DOTNET_CLI_HOME >> /variables.log
 wget -q https://packages.microsoft.com/config/ubuntu/18.04/packages-microsoft-prod.deb
 dpkg -i packages-microsoft-prod.deb 
 
@@ -31,7 +33,7 @@ apt-get -y install npm
 
 #Clone git project to server
 #---------------------------
-git clone https://874a9ff07ffba083c990c89d384408ba6f0f844e@github.com/kdgtg97/city-of-ideas.git &>> /startup.log
+git clone -b deploymentBranch --single-branch https://874a9ff07ffba083c990c89d384408ba6f0f844e@github.com/kdgtg97/city-of-ideas.git &>> /startup.log
 
 #Deploy .NET application on server
 #---------------------------------
@@ -50,7 +52,9 @@ cat > "/etc/apache2/conf-enabled/coi.conf" <<EOF
 EOF
 
 service apache2 restart &>> /startup.log
-dotnet run --project /city-of-ideas &>> /startup.log
+(cd /city-of-ideas/COI.UI-MVC && npm install) &>> /startup.log
+(cd /city-of-ideas/COI.UI-MVC && npm run build) &>> /startup.log
+(cd /city-of-ideas/COI.UI-MVC && dotnet publish) &>> /startup.log
 cp -a /city-of-ideas/COI.UI-MVC/bin/Debug/netcoreapp2.1/publish /var/coi &>>/startup.log
 #service file instellen
 cat > "/etc/systemd/system/kestrel-coi.service" <<EOF
@@ -63,11 +67,13 @@ cat > "/etc/systemd/system/kestrel-coi.service" <<EOF
 	Restart=always
 	RestartSec=10
 	SyslogIdentifier=dotnet-coi
-	User=www-data
+	User=apache
 	Environment=ASPNETCORE_ENVIRONMENT=Production
-
 	[Install]	
 	WantedBy=multi-user.target
 EOF
+
 systemctl enable kestrel-coi.service &>> /startup.log
 systemctl start kestrel-coi.service &>> /startup.log
+
+nohup dotnet /city-of-ideas/COI.UI-MVC/bin/Debug/netcoreapp2.1/publish/COI.UI-MVC.dll --urls=http://*:5000 &>> /startup.log
