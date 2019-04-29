@@ -1,0 +1,3 @@
+Created [https://www.googleapis.com/compute/v1/projects/cs2-jari-wynants/zones/europe-west1-b/instances/deploymentserver].
+NAME              ZONE            MACHINE_TYPE  PREEMPTIBLE  INTERNAL_IP    EXTERNAL_IP    STATUS
+deploymentserver  europe-west1-b  g1-small                   10.132.15.208  34.76.136.198  RUNNING

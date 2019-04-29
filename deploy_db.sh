@@ -6,20 +6,21 @@
 #		-da or --deleteall:	deletes server, db, firewall rules, reserved IP addresses and storage bucket
 #Requirements:	gcloud installed, mysql-client installed
 
+SERVERIP=0
 add_image(){
 	echo "Server wordt aangemaakt..."
-	gcloud compute instances create deploymentserver --machine-type=g1-small --image-project=ubuntu-os-cloud --image-family=ubuntu-1804-lts --zone=europe-west1-b --metadata-from-file=startup-script=/home/jari/coi-git/startup.sh &> /home/jari/coi-git/deploy.log
-	
-	echo "ten seconds to finish..."
-	sleep 10
-	echo "Applicatie wordt gedeployd..."
-	#gcloud compute ssh deploymentserver --command "sudo dotnet publish /city-of-ideas" &>> deploy.log
-	#gcloud compute ssh deploymentserver --command "sudo cp -a /city-of-ideas/COI.UI-MVC/bin/Debug/netcoreapp2.1/publish /var/coi" &>> deploy.log
+	gcloud compute instances create deploymentserver --machine-type=g1-small --image-project=ubuntu-os-cloud --image-family=ubuntu-1804-lts --zone=europe-west1-b --metadata-from-file=startup-script=/home/jari/coi-git/startup.sh &> $HOME/coi-git/deployip.log
+	echo "SQL instance wordt aangemaakt..."
+	SERVERIP=`awk '{ if(NR==3){ print $5; } }' $HOME/coi-git/deployip.log`
+	echo $SERVERIP
+	gcloud sql instances create deploymentsql --tier=db-f1-micro --region=europe-west1 --authorized-networks="$SERVERIP/32" &>> $HOME/coi-git/deploy.log
 }
 
 delete_image(){
 	echo "Server wordt verwijderd..."
 	gcloud compute instances delete deploymentserver
+	echo "SQL instance wordt verwijderd..."
+	gcloud sql instances delete deploymentsql
 	
 }
 
