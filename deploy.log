@@ -1,7 +1,6 @@
-ERROR: (gcloud.compute.instances.create) Could not fetch resource:
- - The resource 'projects/cs2-jari-wynants/zones/europe-west1-b/instances/deploymentserver' already exists
 
-ERROR: (gcloud.sql.instances.create) argument --authorized-networks: Bad value [/32]: Must be specified in CIDR notation, also known as 'slash' notation (e.g. 192.168.100.0/24).
+ERROR: (gcloud.sql.instances.create) Resource in project [cs2-jari-wynants] is the subject of a conflict: The instance or operation is not in an appropriate state to handle the request.
+ERROR: (gcloud.sql.instances.create) argument --authorized-networks: Bad value [0]: Must be specified in CIDR notation, also known as 'slash' notation (e.g. 192.168.100.0/24).
 Usage: gcloud sql instances create INSTANCE [optional flags]
   optional flags may be  --activation-policy | --assign-ip | --async |
                          --authorized-gae-apps | --authorized-networks |
@@ -18,7 +17,7 @@ Usage: gcloud sql instances create INSTANCE [optional flags]
 
 For detailed information on this command and its flags, run:
   gcloud sql instances create --help
-ERROR: (gcloud.sql.instances.create) argument --authorized-networks: Bad value [/32]: Must be specified in CIDR notation, also known as 'slash' notation (e.g. 192.168.100.0/24).
+ERROR: (gcloud.sql.instances.create) argument --authorized-networks: Bad value [0]: Must be specified in CIDR notation, also known as 'slash' notation (e.g. 192.168.100.0/24).
 Usage: gcloud sql instances create INSTANCE [optional flags]
   optional flags may be  --activation-policy | --assign-ip | --async |
                          --authorized-gae-apps | --authorized-networks |
@@ -35,6 +34,22 @@ Usage: gcloud sql instances create INSTANCE [optional flags]
 
 For detailed information on this command and its flags, run:
   gcloud sql instances create --help
-Creating Cloud SQL instance...
-..................failed.
-ERROR: (gcloud.sql.instances.create) Operation https://www.googleapis.com/sql/v1beta4/projects/cs2-jari-wynants/operations/4cbb5dea-0ec7-4347-b83c-f2a173507104 is taking longer than expected. You can continue waiting for the operation by running `gcloud beta sql operations wait --project cs2-jari-wynants 4cbb5dea-0ec7-4347-b83c-f2a173507104`
+ERROR: (gcloud.sql.instances.create) argument --authorized-networks: Bad value [/24]: Must be specified in CIDR notation, also known as 'slash' notation (e.g. 192.168.100.0/24).
+Usage: gcloud sql instances create INSTANCE [optional flags]
+  optional flags may be  --activation-policy | --assign-ip | --async |
+                         --authorized-gae-apps | --authorized-networks |
+                         --availability-type | --backup | --backup-start-time |
+                         --cpu | --database-flags | --database-version |
+                         --enable-bin-log | --failover-replica-name |
+                         --follow-gae-app | --gce-zone | --help |
+                         --maintenance-release-channel |
+                         --maintenance-window-day | --maintenance-window-hour |
+                         --master-instance-name | --memory | --pricing-plan |
+                         --region | --replica-type | --replication |
+                         --require-ssl | --storage-auto-increase |
+                         --storage-size | --storage-type | --tier | --zone
+
+For detailed information on this command and its flags, run:
+  gcloud sql instances create --help
+ERROR: (gcloud.sql.instances.create) HTTPError 400: Invalid request: Network (35.241.132.208/24)..
+ERROR: (gcloud.sql.instances.create) HTTPError 400: Invalid request: Network (10.132.15.213/20)..

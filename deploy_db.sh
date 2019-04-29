@@ -11,9 +11,12 @@ add_image(){
 	echo "Server wordt aangemaakt..."
 	gcloud compute instances create deploymentserver --machine-type=g1-small --image-project=ubuntu-os-cloud --image-family=ubuntu-1804-lts --zone=europe-west1-b --metadata-from-file=startup-script=/home/jari/coi-git/startup.sh &> $HOME/coi-git/deployip.log
 	echo "SQL instance wordt aangemaakt..."
-	SERVERIP=`awk '{ if(NR==3){ print $5; } }' $HOME/coi-git/deployip.log`
+	SERVERIP="`awk '{ if(NR==3){ print $4; } }' $HOME/coi-git/deployip.log`/20"
 	echo $SERVERIP
-	gcloud sql instances create deploymentsql --tier=db-f1-micro --region=europe-west1 --authorized-networks="$SERVERIP/32" &>> $HOME/coi-git/deploy.log
+	gcloud sql instances create deploymentsql --tier=db-f1-micro --region=europe-west1 --authorized-networks=$SERVERIP &>> $HOME/coi-git/deploy.log
+	
+	echo "Storage bucket wordt aangemaakt..."
+	gsutil mb gs://coi
 }
 
 delete_image(){
@@ -32,6 +35,8 @@ import_db(){
 delete_all(){
 	delete_image
 	#TODO "Gereserveerd IP adres en storage bucket wordt verwijderd..."	
+	echo "Bucket wordt verwijderd..."
+	gsutil rb gs://coi
 }
 
 #help functie
