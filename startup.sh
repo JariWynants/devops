@@ -31,6 +31,10 @@ apt-get -y install mosquitto-clients &>> /startup.log
 apt-get -y install nodejs
 apt-get -y install npm
 
+#Install mysql-client
+#--------------------
+apt-get -y install mysql-client
+
 #Clone git project to server
 #---------------------------
 git clone -b deploymentBranch --single-branch https://874a9ff07ffba083c990c89d384408ba6f0f844e@github.com/kdgtg97/city-of-ideas.git &>> /startup.log
