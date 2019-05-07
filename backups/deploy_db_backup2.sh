@@ -11,7 +11,7 @@ SERVERIP=0
 RESERVED_IP_ADDRESS=""
 SERVERNAME=deploymentserver
 SERVERTYPE=g1-small
-SQLNAME=sqlinstance3
+SQLNAME=sqlinstance2
 ZONE=europe-west1-b
 SQLTIER=db-g1-small
 REGION=europe-west1
@@ -40,7 +40,7 @@ add_image(){
 		gcloud compute firewall-rules create html5001 --allow=tcp:5001 --target-tags=ds
 	fi
 
-	gcloud compute instances create $SERVERNAME --machine-type=$SERVERTYPE --image-project=ubuntu-os-cloud --image-family=ubuntu-1804-lts --zone=$ZONE --address=$RESERVED_IP_ADDRESS --tags=ds --metadata-from-file=startup-script=/home/jari/coi-git/startup_backup.sh &> $HOME/coi-git/deployip.log
+	gcloud compute instances create $SERVERNAME --machine-type=$SERVERTYPE --image-project=ubuntu-os-cloud --image-family=ubuntu-1804-lts --zone=$ZONE --address=$RESERVED_IP_ADDRESS --tags=ds --metadata-from-file=startup-script=/home/jari/coi-git/startup.sh &> $HOME/coi-git/deployip.log
 	echo ""
 	echo "SQL instance is being set up..."
 	SERVERIP="`awk '{ if(NR==3){ print $5; } }' $HOME/coi-git/deployip.log`"

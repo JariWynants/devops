@@ -1,7 +1,3 @@
-Creating Cloud SQL instance...
-...............done.
-Created [https://www.googleapis.com/sql/v1beta4/projects/cs2-jari-wynants/instances/sqlinstance2].
-NAME          DATABASE_VERSION  LOCATION        TIER         PRIMARY_ADDRESS  PRIVATE_ADDRESS  STATUS
-sqlinstance2  MYSQL_5_7         europe-west1-b  db-g1-small  34.76.46.244     -                RUNNABLE
+ERROR: (gcloud.sql.instances.create) Resource in project [cs2-jari-wynants] is the subject of a conflict: The Cloud SQL instance already exists.
 Creating gs://coi-burgers2/...
 ServiceException: 409 Bucket coi-burgers2 already exists.

@@ -6,22 +6,36 @@
 #		-da or --deleteall:	deletes server, db, firewall rules, reserved IP addresses and storage bucket
 #Requirements:	gcloud installed, mysql-client installed
 
+SERVERIP=0
+SERVERNAME=deploymentserver
+SERVERTYPE=g1-small
+SQLNAME=deploymentserver2
+ZONE=europe-west1-b
+SQLTIER=
+REGION=europe-west1
+BUCKETNAME=coi-burgers
+
 add_image(){
 	echo "Server wordt aangemaakt..."
-	gcloud compute instances create deploymentserver --machine-type=g1-small --image-project=ubuntu-os-cloud --image-family=ubuntu-1804-lts --zone=europe-west1-b --tags=ds --metadata-from-file=startup-script=/home/jari/coi-git/startup.sh &> /home/jari/coi-git/deployip.log
-	
-	#echo "ten seconds to finish..."
-	#sleep 10
-	echo "Applicatie wordt gedeployd..."
+	gcloud compute instances create deploymentserver --machine-type=g1-small --image-project=ubuntu-os-cloud --image-family=ubuntu-1804-lts --zone=europe-west1-b --metadata-from-file=startup-script=/home/jari/coi-git/startup.sh &> $HOME/coi-git/deployip.log
+	echo ""
+	echo "SQL instance wordt aangemaakt..."
 	SERVERIP="`awk '{ if(NR==3){ print $5; } }' $HOME/coi-git/deployip.log`"
-	gcloud compute ssh deploymentserver --command "sudo openssl req -nodes -newkey rsa:2048 -keyout /etc/apache2/ssl/example.key -out /etc/apache2/ssl/example.csr -subj \"C=BE/ST=Antwerp/L=Antwerp/O=KdG/OU=Toegepaste Informatica/CN=$SERVERIP\""
-	
-	gcloud compute ssh deploymentserver --command ""
+	echo $SERVERIP
+	gcloud sql instances create deploymentsql2 --tier=db-f1-micro --region=europe-west1 --backup-start-time 00:00 --authorized-networks="$SERVERIP" &> $HOME/coi-git/deploy.log
+	echo ""
+	echo "Configuring SQL instance..."
+	gcloud sql users set-password root --host=% --instance=deploymentsql2 --password=burgers
+	echo ""
+	echo "Storage bucket wordt aangemaakt..."
+	gsutil mb gs://coi-burgers &>> $HOME/coi-git/deploy.log
 }
 
 delete_image(){
 	echo "Server wordt verwijderd..."
 	gcloud compute instances delete deploymentserver
+	echo "SQL instance wordt verwijderd..."
+	gcloud sql instances delete deploymentsql2
 	
 }
 
@@ -33,6 +47,8 @@ import_db(){
 delete_all(){
 	delete_image
 	#TODO "Gereserveerd IP adres en storage bucket wordt verwijderd..."	
+	echo "Bucket wordt verwijderd..."
+	gsutil rm -r gs://coi-burgers &>> $HOME/coi-git/deploy.log
 }
 
 #help functie

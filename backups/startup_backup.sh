@@ -37,54 +37,26 @@ apt-get -y install mysql-client
 
 #Clone git project to server
 #---------------------------
-git clone -b deploymentbranch2 --single-branch https://874a9ff07ffba083c990c89d384408ba6f0f844e@github.com/kdgtg97/city-of-ideas.git &>> /startup.log
+git clone -b deploymentBranch --single-branch https://874a9ff07ffba083c990c89d384408ba6f0f844e@github.com/kdgtg97/city-of-ideas.git &>> /startup.log
 
-#Apache installeren (reverse proxy)
-#----------------------------------
+#Deploy .NET application on server
+#---------------------------------
 apt-get -y install apache2 &>> /startup.log
 a2enmod proxy proxy_http proxy_html &>> /startup.log
 
-#Apache conf file instellen
-#--------------------------
+#log file instellen
 cat > "/etc/apache2/conf-enabled/coi.conf" <<EOF
 	<VirtualHost *:80>
-		ServerName cityofideas.ga
-		ServerAlias www.cityofideas.ga
-	
-		ProxyPreserveHost On
-		ProxyPass / http://127.0.0.1:5000/
-		ProxyPassReverse / http://127.0.0.1:5000/
-		ErrorLog /var/log/apache2/coi-error.log
-		CustomLog /var/log/apache2/coi-access.log common
-	</VirtualHost>
-
-	<VirtualHost *:443>
-		ServerAdmin jari.wynants@hotmail.com
-		ServerName cityofideas.ga
-		ServerAlias www.cityofideas.ga
-		DocumentRoot /var/coi/wwwroot
-
-		ProxyPreserveHost On
-		ProxyPass / http://127.0.0.1:5000/
-		ProxyPassReverse / http://127.0.0.1:5000/
-		ErrorLog /var/log/apache2/coi-error.log
-		CustomLog /var/log/apache2/coi-access.log common
-	
-		SSLEngine on
-		SSLCertificateFile /etc/apache2/ssl/apache.crt
-		SSLCertificateKeyFile /etc/apache2/ssl/apache.key
-
-		<FilesMatch "\.(cgi|shtml|phtml|php)$">
-			SSLOptions +StdEnvVars
-		</FilesMatch>
-		<Directory /usr/lib/cgi-bin>
-			SSLOptions +StdEnvVars
-		</Directory>
+	ProxyPreserveHost On
+	ProxyPass / http://127.0.0.1:5000/
+	ProxyPassReverse / http://127.0.0.1:5000/
+	ErrorLog /var/log/apache2/coi-error.log
+	CustomLog /var/log/apache2/coi-access.log common
 	</VirtualHost>
 EOF
 
 service apache2 restart &>> /startup.log
-(cd /city-of-ideas/COI.UI-MVC && npm install --no-optional) &>> /startup.log
+(cd /city-of-ideas/COI.UI-MVC && npm install) &>> /startup.log
 (cd /city-of-ideas/COI.UI-MVC && npm run build) &>> /startup.log
 (cd /city-of-ideas/COI.UI-MVC && dotnet publish) &>> /startup.log
 cp -a /city-of-ideas/COI.UI-MVC/bin/Debug/netcoreapp2.1/publish /var/coi &>>/startup.log
@@ -94,14 +66,13 @@ cat > "/etc/systemd/system/kestrel-coi.service" <<EOF
 	Description=City of Ideas dotnet core website running on Ubuntu 18.04
 
 	[Service]
-	WorkingDirectory=/city-of-ideas/COI.UI-MVC/bin/Debug/netcoreapp2.1/publish
-	ExecStart=/usr/bin/dotnet /city-of-ideas/COI.UI-MVC/bin/Debug/netcoreapp2.1/publish/COI.UI-MVC.dll
+	WorkingDirectory=/var/coi
+	ExecStart=/usr/bin/dotnet /var/coi/COI.UI-MVC.dll
 	Restart=always
 	RestartSec=10
 	SyslogIdentifier=dotnet-coi
 	User=apache
 	Environment=ASPNETCORE_ENVIRONMENT=Production
-
 	[Install]	
 	WantedBy=multi-user.target
 EOF
