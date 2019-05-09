@@ -25,21 +25,21 @@ add_image(){
 			echo "New IP address is being created..."
 			gcloud compute addresses create coi-address --region=$REGION
 		fi
-		RESERVED_IP_ADDRESS=`gcloud compute addresses list --filter "coi-address" | grep -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}"` 
+		export RESERVED_IP_ADDRESS=`gcloud compute addresses list --filter "coi-address" | grep -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}"` 
 	fi
 	
 	if [[ -z `gcloud compute firewall-rules list | grep "http"` ]]; then
 		echo ""
 		echo "Creating firewall-rules..."
-		gcloud compute firewall-rules create http80 --allow=tcp:80 --target-tags=ds
-		gcloud compute firewall-rules create http8080 --allow=tcp:8080 --target-tags=ds
+		gcloud compute firewall-rules create http80 --allow=tcp:80 --target-tags=ds --quiet
+		gcloud compute firewall-rules create http8080 --allow=tcp:8080 --target-tags=ds --quiet
 	fi
 
 	if [[ -z `gcloud compute firewall-rules list | grep "html"` ]]; then
-		gcloud compute firewall-rules create html5000 --allow=tcp:5000 --target-tags=ds
-		gcloud compute firewall-rules create html5001 --allow=tcp:5001 --target-tags=ds
+		gcloud compute firewall-rules create html5000 --allow=tcp:5000 --target-tags=ds --quiet
+		gcloud compute firewall-rules create html5001 --allow=tcp:5001 --target-tags=ds --quiet
 	fi
-
+	echo $RESERVED_IP_ADDRESS
 	gcloud compute instances create $SERVERNAME --machine-type=$SERVERTYPE --image-project=ubuntu-os-cloud --image-family=ubuntu-1804-lts --zone=$ZONE --address=$RESERVED_IP_ADDRESS --tags=ds --metadata startup-script="
 	#!/bin/bash
 
@@ -61,9 +61,9 @@ add_image(){
 	#------------------------------------------------------
 	#TODO: open port 1883 to allow connection (in deploy.sh)
 
-	apt-add-repository ppa:mosquitto-dev/mosquitto-ppa &>> /startup.log
-	apt-get -y install mosquitto &>> /startup.log
-	apt-get -y install mosquitto-clients &>> /startup.log
+	#apt-add-repository ppa:mosquitto-dev/mosquitto-ppa &>> /startup.log
+	#apt-get -y install mosquitto &>> /startup.log
+	#apt-get -y install mosquitto-clients &>> /startup.log
 
 	#Install nodejs & npm
 	#--------------------
@@ -72,7 +72,7 @@ add_image(){
 
 	#Install mysql-client
 	#--------------------
-	apt-get -y install mysql-client
+	#apt-get -y install mysql-client
 
 	#Clone git project to server
 	#---------------------------
@@ -84,15 +84,9 @@ add_image(){
 	a2enmod proxy proxy_http proxy_html &>> /startup.log
 	a2enmod ssl &>> /startup.log
 
-	#HTTPS certificate aanvragen
-	#---------------------------
-	mkdir /etc/apache2/ssl &>> /startup.log
-	openssl req -x509 -newkey rsa:4096 -keyout /etc/apache2/ssl/apache.key -out /etc/apache2/ssl/apache.crt -days 365 -nodes -subj \"C=BE/ST=Antwerp/L=Antwerp/O=KdG/OU=Toegepaste informatica/CN=$RESERVED_IP_ADDRESS\" &>> /startup.log
-	
-
 	#Apache conf file instellen
 	#--------------------------
-	cat > \"/etc/apache2/conf-enabled/coi.conf\" <<EOF
+	cat > \"/etc/apache2/conf-enabled/coi.conf\" <<-FOE
 		<VirtualHost *:80>
 			ServerName cityofideas.ga
 			ServerAlias www.cityofideas.ga
@@ -127,15 +121,15 @@ add_image(){
 				SSLOptions +StdEnvVars
 			</Directory>
 		</VirtualHost>
-	EOF
+	FOE
 
-	service apache2 restart &>> /startup.log
+	echo \"help\" &>> /startup.log
 	(cd /city-of-ideas/COI.UI-MVC && npm install --no-optional) &>> /startup.log
 	(cd /city-of-ideas/COI.UI-MVC && npm run build) &>> /startup.log
 	(cd /city-of-ideas/COI.UI-MVC && dotnet publish) &>> /startup.log
 	cp -a /city-of-ideas/COI.UI-MVC/bin/Debug/netcoreapp2.1/publish /var/coi &>>/startup.log
 	#service file instellen
-	cat > \"/etc/systemd/system/kestrel-coi.service\" <<EOF
+	cat > \"/etc/systemd/system/kestrel-coi.service\" <<-EO
 		[Unit]
 		Description=City of Ideas dotnet core website running on Ubuntu 18.04
 
@@ -150,28 +144,37 @@ add_image(){
 
 		[Install]	
 		WantedBy=multi-user.target
-	EOF	
-
+	EO
+	
+	echo \"help2\" &>> /startup.log
+	
+	service apache2 restart &>> /startup.log
 	systemctl enable kestrel-coi.service &>> /startup.log
 	systemctl start kestrel-coi.service &>> /startup.log
 
 	nohup dotnet /city-of-ideas/COI.UI-MVC/bin/Debug/netcoreapp2.1/publish/COI.UI-MVC.dll --urls=http://*:5000 &>> /startup.log
+
+        #HTTPS certificate aanvragen
+        #---------------------------
+        mkdir /etc/apache2/ssl &>> /startup.log
+        openssl req -newkey rsa:2048 -keyout /etc/apache2/ssl/apache.key -out /etc/apache2/ssl/apache.crt -days 365 -nodes -subj '/C=BE/ST=Antwerp/L=Antwerp/O=KdG/OU=Toegepaste informatica/CN=$RESERVED_IP_ADDRESS' &>> /startup.log 
+
 " &> $HOME/coi-git/deployip.log
 
 	echo ""
 	echo "SQL instance is being set up..."
 	SERVERIP="`awk '{ if(NR==3){ print $5; } }' $HOME/coi-git/deployip.log`"
 	echo $SERVERIP
-	gcloud sql instances create $SQLNAME --tier=$SQLTIER --region=$REGION --backup-start-time 00:00 --authorized-networks="$SERVERIP" &> $HOME/coi-git/deploy.log
+	#gcloud sql instances create $SQLNAME --tier=$SQLTIER --region=$REGION --backup-start-time 00:00 --authorized-networks="$SERVERIP" &> $HOME/coi-git/deploy.log
 	wait
 	sleep 10
-	gcloud sql databases create $DBNAME --instance=$SQLNAME
+	#gcloud sql databases create $DBNAME --instance=$SQLNAME
 	echo ""
 	echo "Configuring SQL instance..."
-	gcloud sql users set-password root --host=% --instance=$SQLNAME --password=burgers
+	#gcloud sql users set-password root --host=% --instance=$SQLNAME --password=burgers
 	echo ""
 	echo "Storage bucket wordt aangemaakt..."
-	gsutil mb gs://$BUCKETNAME &>> $HOME/coi-git/deploy.log
+	#gsutil mb gs://$BUCKETNAME &>> $HOME/coi-git/deploy.log
 }
 
 delete_image(){
