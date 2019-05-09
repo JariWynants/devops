@@ -70,7 +70,7 @@ cat > "/etc/systemd/system/kestrel-coi.service" <<EOF
 
 	[Service]
 	WorkingDirectory=/var/coi
-	ExecStart=/usr/bin/dotnet var/coi/COI.UI-MVC.dll
+	ExecStart=/usr/bin/dotnet /var/coi/COI.UI-MVC.dll
 	Restart=always
 	RestartSec=10
 	SyslogIdentifier=dotnet-coi

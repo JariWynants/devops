@@ -11,7 +11,7 @@ SERVERIP=0
 RESERVED_IP_ADDRESS=""
 SERVERNAME=deploymentserver
 SERVERTYPE=g1-small
-SQLNAME=sqlinstance3
+SQLNAME=sqlinstance4
 ZONE=europe-west1-b
 SQLTIER=db-g1-small
 REGION=europe-west1
@@ -39,7 +39,15 @@ add_image(){
 		gcloud compute firewall-rules create html5000 --allow=tcp:5000 --target-tags=ds --quiet
 		gcloud compute firewall-rules create html5001 --allow=tcp:5001 --target-tags=ds --quiet
 	fi
-	echo $RESERVED_IP_ADDRESS
+
+	echo ""
+	echo "SQL instance is being created..."
+        #gcloud sql instances create $SQLNAME --tier=$SQLTIER --region=$REGION --backup-start-time 00:00 --authorized-networks=$RESERVED_IP_ADDRESS &> $HOME/coi-git/deploy.log
+	sleep 5
+	SQLIP="`gcloud sql instances list | awk '{ if(NR==2){ print $5; } }'`"
+	echo ""
+	echo "Compute engine is being set up..."
+
 	gcloud compute instances create $SERVERNAME --machine-type=$SERVERTYPE --image-project=ubuntu-os-cloud --image-family=ubuntu-1804-lts --zone=$ZONE --address=$RESERVED_IP_ADDRESS --tags=ds --metadata startup-script="
 	#!/bin/bash
 
@@ -55,7 +63,7 @@ add_image(){
 	add-apt-repository universe &>> /startup.log
 	apt-get -y install apt-transport-https &>> /startup.log
 	apt-get -y update &>> /startup.log
-	apt-get -y install dotnet-sdk-2.1 &>> /startup.log
+	apt-get -y install dotnet-sdk-2.2 &>> /startup.log
 
 	#Install Moqsuitto MQTT Broker for connection with LoRa
 	#------------------------------------------------------
@@ -77,8 +85,10 @@ add_image(){
 
 	#Clone git project to server
 	#---------------------------
-	git clone -b deploymentbranch2 --single-branch https://874a9ff07ffba083c990c89d384408ba6f0f844e@github.com/kdgtg97/city-of-ideas.git &>> /startup.log
-
+	git clone -b deploymenti22 --single-branch https://874a9ff07ffba083c990c89d384408ba6f0f844e@github.com/kdgtg97/city-of-ideas.git &>> /startup.log
+	sed -i \"s/server=;port=3306;database=city-of-ideas-db;user=wortel;password=root/server=$SQLIP;port=3306;database=$DBNAME;user=root;password=burgers/g\" /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
+	sed -i \"s/optionsBuilder.UseSqlite/\\/\\/optionsBuilder.UseSqlite/g\" /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
+	sed -i \"s/\\/\\/            optionsBuilder.UseMySql/              optionsBuilder.UseMySql/g\" /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
 	#Apache installeren (reverse proxy)
 	#----------------------------------
 	apt-get -y install apache2 &>> /startup.log
@@ -91,7 +101,8 @@ add_image(){
 		<VirtualHost *:80>
 			ServerName cityofideas.ga
 			ServerAlias www.cityofideas.ga
-		
+			DocumentRoot /var/coi/wwwroot
+
 			ProxyPreserveHost On
 			ProxyPass / http://127.0.0.1:5000/
 			ProxyPassReverse / http://127.0.0.1:5000/
@@ -128,15 +139,15 @@ add_image(){
 	(cd /city-of-ideas/COI.UI-MVC && npm install --no-optional) &>> /startup.log
 	(cd /city-of-ideas/COI.UI-MVC && npm run build) &>> /startup.log
 	(cd /city-of-ideas/COI.UI-MVC && dotnet publish) &>> /startup.log
-	cp -a /city-of-ideas/COI.UI-MVC/bin/Debug/netcoreapp2.1/publish /var/coi &>>/startup.log
+	cp -a /city-of-ideas/COI.UI-MVC/bin/Debug/netcoreapp2.2/publish /var/coi &>>/startup.log
 	#service file instellen
 	cat > \"/etc/systemd/system/kestrel-coi.service\" <<-EO
 		[Unit]
 		Description=City of Ideas dotnet core website running on Ubuntu 18.04
 
 		[Service]
-		WorkingDirectory=/city-of-ideas/COI.UI-MVC/bin/Debug/netcoreapp2.1/publish
-		ExecStart=/usr/bin/dotnet /city-of-ideas/COI.UI-MVC/bin/Debug/netcoreapp2.1/publish/COI.UI-MVC.dll
+		WorkingDirectory=/var/coi
+		ExecStart=/usr/bin/dotnet /var/coi/COI.UI-MVC.dll
 		Restart=always
 		RestartSec=10
 		SyslogIdentifier=dotnet-coi
@@ -158,7 +169,7 @@ add_image(){
 	systemctl enable kestrel-coi.service &>> /startup.log
 	systemctl start kestrel-coi.service &>> /startup.log
 
-	nohup dotnet /city-of-ideas/COI.UI-MVC/bin/Debug/netcoreapp2.1/publish/COI.UI-MVC.dll --urls=http://*:5000 &>> /startup.log
+	nohup dotnet /var/coi/COI.UI-MVC.dll --urls=http://*:5000 &>> /startup.log
 
         #HTTPS certificate aanvragen
         #---------------------------
@@ -168,15 +179,8 @@ add_image(){
 " &> $HOME/coi-git/deployip.log
 
 	echo ""
-	echo "SQL instance is being set up..."
-	SERVERIP="`awk '{ if(NR==3){ print $5; } }' $HOME/coi-git/deployip.log`"
-	echo $SERVERIP
-	#gcloud sql instances create $SQLNAME --tier=$SQLTIER --region=$REGION --backup-start-time 00:00 --authorized-networks="$SERVERIP" &> $HOME/coi-git/deploy.log
-	wait
-	sleep 10
-	#gcloud sql databases create $DBNAME --instance=$SQLNAME
-	echo ""
 	echo "Configuring SQL instance..."
+	#gcloud sql databases create $DBNAME --instance=$SQLNAME
 	#gcloud sql users set-password root --host=% --instance=$SQLNAME --password=burgers
 	echo ""
 	echo "Storage bucket wordt aangemaakt..."
