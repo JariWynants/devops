@@ -11,7 +11,7 @@ SERVERIP=0
 RESERVED_IP_ADDRESS=""
 SERVERNAME=deploymentserver
 SERVERTYPE=g1-small
-SQLNAME=sqlinstance4
+SQLNAME=sqlinstance3
 ZONE=europe-west1-b
 SQLTIER=db-g1-small
 REGION=europe-west1
@@ -39,15 +39,7 @@ add_image(){
 		gcloud compute firewall-rules create html5000 --allow=tcp:5000 --target-tags=ds --quiet
 		gcloud compute firewall-rules create html5001 --allow=tcp:5001 --target-tags=ds --quiet
 	fi
-
-	echo ""
-	echo "SQL instance is being created..."
-        #gcloud sql instances create $SQLNAME --tier=$SQLTIER --region=$REGION --backup-start-time 00:00 --authorized-networks=$RESERVED_IP_ADDRESS &> $HOME/coi-git/deploy.log
-	sleep 5
-	SQLIP="`gcloud sql instances list | awk '{ if(NR==2){ print $5; } }'`"
-	echo ""
-	echo "Compute engine is being set up..."
-
+	echo $RESERVED_IP_ADDRESS
 	gcloud compute instances create $SERVERNAME --machine-type=$SERVERTYPE --image-project=ubuntu-os-cloud --image-family=ubuntu-1804-lts --zone=$ZONE --address=$RESERVED_IP_ADDRESS --tags=ds --metadata startup-script="
 	#!/bin/bash
 
@@ -63,27 +55,15 @@ add_image(){
 	add-apt-repository universe &>> /startup.log
 	apt-get -y install apt-transport-https &>> /startup.log
 	apt-get -y update &>> /startup.log
-	apt-get -y install dotnet-sdk-2.2 &>> /startup.log
+	apt-get -y install dotnet-sdk-2.1 &>> /startup.log
 
 	#Install Moqsuitto MQTT Broker for connection with LoRa
 	#------------------------------------------------------
 	#TODO: open port 1883 to allow connection (in deploy.sh)
 
-	apt-add-repository ppa:mosquitto-dev/mosquitto-ppa &>> /startup.log
-	apt-get -y install mosquitto &>> /startup.log
-	apt-get -y install mosquitto-clients &>> /startup.log
-	
-	touch /etc/mosquitto/mosquitto.conf
-	cat > \"/etc/mosquitto/mosquitto.conf\" <<-EOF
-		pid_file /var/run/mosquitto.pid
-		persistence true
-		persistence_location /var/lib/mosquitto
-		log_dest file /var/log/mosquitto/mosquitto.log
-		allow_anonymous false
-		password_file /etc/mosquitto/pwfile
-		listener 1883
-	EOF
-	mosquitto_passwd -b -c /etc/mosquitto/pwfile deburgers root
+	#apt-add-repository ppa:mosquitto-dev/mosquitto-ppa &>> /startup.log
+	#apt-get -y install mosquitto &>> /startup.log
+	#apt-get -y install mosquitto-clients &>> /startup.log
 
 	#Install nodejs & npm
 	#--------------------
@@ -93,14 +73,12 @@ add_image(){
 
 	#Install mysql-client
 	#--------------------
-	apt-get -y install mysql-client
+	#apt-get -y install mysql-client
 
 	#Clone git project to server
 	#---------------------------
-	git clone -b deploymenti22 --single-branch https://874a9ff07ffba083c990c89d384408ba6f0f844e@github.com/kdgtg97/city-of-ideas.git &>> /startup.log
-	sed -i \"s/server=;port=3306;database=city-of-ideas-db;user=wortel;password=root/server=$SQLIP;port=3306;database=$DBNAME;user=root;password=burgers/g\" /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
-	sed -i \"s/optionsBuilder.UseSqlite/\\/\\/optionsBuilder.UseSqlite/g\" /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
-	sed -i \"s/\\/\\/            optionsBuilder.UseMySql/              optionsBuilder.UseMySql/g\" /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
+	git clone -b deploymentbranch2 --single-branch https://874a9ff07ffba083c990c89d384408ba6f0f844e@github.com/kdgtg97/city-of-ideas.git &>> /startup.log
+
 	#Apache installeren (reverse proxy)
 	#----------------------------------
 	apt-get -y install apache2 &>> /startup.log
@@ -113,8 +91,7 @@ add_image(){
 		<VirtualHost *:80>
 			ServerName cityofideas.ga
 			ServerAlias www.cityofideas.ga
-			DocumentRoot /var/coi/wwwroot
-
+		
 			ProxyPreserveHost On
 			ProxyPass / http://127.0.0.1:5000/
 			ProxyPassReverse / http://127.0.0.1:5000/
@@ -151,16 +128,15 @@ add_image(){
 	(cd /city-of-ideas/COI.UI-MVC && npm install --no-optional) &>> /startup.log
 	(cd /city-of-ideas/COI.UI-MVC && npm run build) &>> /startup.log
 	(cd /city-of-ideas/COI.UI-MVC && dotnet publish) &>> /startup.log
-	cp -a /city-of-ideas/COI.UI-MVC/bin/Debug/netcoreapp2.2/publish /var/coi &>> /startup.log
-	cp -a /city-of-ideas/COI.UI-MVC/wwwroot/dist /city-of-ideas/COI.UI-MVC &>> /startup.log
+	cp -a /city-of-ideas/COI.UI-MVC/bin/Debug/netcoreapp2.1/publish /var/coi &>>/startup.log
 	#service file instellen
 	cat > \"/etc/systemd/system/kestrel-coi.service\" <<-EO
 		[Unit]
 		Description=City of Ideas dotnet core website running on Ubuntu 18.04
 
 		[Service]
-		WorkingDirectory=/var/coi
-		ExecStart=/usr/bin/dotnet /var/coi/COI.UI-MVC.dll
+		WorkingDirectory=/city-of-ideas/COI.UI-MVC/bin/Debug/netcoreapp2.1/publish
+		ExecStart=/usr/bin/dotnet /city-of-ideas/COI.UI-MVC/bin/Debug/netcoreapp2.1/publish/COI.UI-MVC.dll
 		Restart=always
 		RestartSec=10
 		SyslogIdentifier=dotnet-coi
@@ -182,7 +158,7 @@ add_image(){
 	systemctl enable kestrel-coi.service &>> /startup.log
 	systemctl start kestrel-coi.service &>> /startup.log
 
-	nohup dotnet /var/coi/COI.UI-MVC.dll --urls=http://*:5000 &>> /startup.log
+	nohup dotnet /city-of-ideas/COI.UI-MVC/bin/Debug/netcoreapp2.1/publish/COI.UI-MVC.dll --urls=http://*:5000 &>> /startup.log
 
         #HTTPS certificate aanvragen
         #---------------------------
@@ -192,8 +168,15 @@ add_image(){
 " &> $HOME/coi-git/deployip.log
 
 	echo ""
-	echo "Configuring SQL instance..."
+	echo "SQL instance is being set up..."
+	SERVERIP="`awk '{ if(NR==3){ print $5; } }' $HOME/coi-git/deployip.log`"
+	echo $SERVERIP
+	#gcloud sql instances create $SQLNAME --tier=$SQLTIER --region=$REGION --backup-start-time 00:00 --authorized-networks="$SERVERIP" &> $HOME/coi-git/deploy.log
+	wait
+	sleep 10
 	#gcloud sql databases create $DBNAME --instance=$SQLNAME
+	echo ""
+	echo "Configuring SQL instance..."
 	#gcloud sql users set-password root --host=% --instance=$SQLNAME --password=burgers
 	echo ""
 	echo "Storage bucket wordt aangemaakt..."
@@ -250,12 +233,12 @@ delete_all(){
 }
 
 #help functie
-if [[ "$1" -eq "-h" || "$1" -eq "--help" || $# -ge 2 ]]; then
+if [[ "$1" -eq "-h" ]] || [[ "$1" -eq "--help" ]] || [[ "$#" -ge "2" ]]; then
 	echo "Usage: deploy.sh (-i/-d/-da)"
 	echo "Example: deploy.sh will create linux server instance, cloud SQL db, Cloud Storage bucket and import db from storage bucket"
 fi
 
-if [[ $# -eq 0 ]]; then
+if [[ "$#" -eq "0" ]]; then
 #Create Linux VM instance, SQL instance, firewall rule
 	add_image
 fi
