@@ -11,7 +11,7 @@ SERVERIP=0
 RESERVED_IP_ADDRESS=""
 SERVERNAME=deploymentserver
 SERVERTYPE=g1-small
-SQLNAME=sqlinstance4
+SQLNAME=sqlinstance7
 ZONE=europe-west1-b
 SQLTIER=db-g1-small
 REGION=europe-west1
@@ -89,7 +89,6 @@ add_image(){
 	#--------------------
 	apt-get -y install nodejs
 	apt-get -y install npm
-	npm install -g
 
 	#Install mysql-client
 	#--------------------
@@ -101,6 +100,7 @@ add_image(){
 	sed -i \"s/server=;port=3306;database=city-of-ideas-db;user=wortel;password=root/server=$SQLIP;port=3306;database=$DBNAME;user=root;password=burgers/g\" /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
 	sed -i \"s/optionsBuilder.UseSqlite/\\/\\/optionsBuilder.UseSqlite/g\" /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
 	sed -i \"s/\\/\\/            optionsBuilder.UseMySql/              optionsBuilder.UseMySql/g\" /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
+	
 	#Apache installeren (reverse proxy)
 	#----------------------------------
 	apt-get -y install apache2 &>> /startup.log
@@ -147,10 +147,11 @@ add_image(){
 		</VirtualHost>
 	FOE
 
-	echo \"help\" &>> /startup.log
-	(cd /city-of-ideas/COI.UI-MVC && npm install --no-optional) &>> /startup.log
-	(cd /city-of-ideas/COI.UI-MVC && npm run build) &>> /startup.log
-	(cd /city-of-ideas/COI.UI-MVC && dotnet publish) &>> /startup.log
+	(cd /city-of-ideas/COI.UI-MVC; dotnet user-secrets set \"Authentication:Google:ClientId\" \"355723272104-8uddpjediv7gmc9kr3mboduv60atvo7n.apps.googleusercontent.com\") &>> /startup.log
+	(cd /city-of-ideas/COI.UI-MVC && dotnet user-secrets set \"Authentication:Google:ClientSecret\" \"RvmDaMohNqHCgc9IsF0BUsrO\") &>> /startup.log
+	(cd /city-of-ideas/COI.UI-MVC/wwwroot; npm install --no-optional) &>> /startup.log
+	(cd /city-of-ideas/COI.UI-MVC/wwwroot; npm run-script build) &>> /startup.log
+	(cd /city-of-ideas/COI.UI-MVC; dotnet publish) &>> /startup.log
 	cp -a /city-of-ideas/COI.UI-MVC/bin/Debug/netcoreapp2.2/publish /var/coi &>> /startup.log
 	cp -a /city-of-ideas/COI.UI-MVC/wwwroot/dist /city-of-ideas/COI.UI-MVC &>> /startup.log
 	#service file instellen
@@ -205,6 +206,7 @@ delete_image(){
 	read -p "Wilt u de databank exporteren? [Y/n]: " yn
 	case $yn in
 		[Yy]* )
+			gsutil rm gs://$BUCKETNAME/*
 		       	SAEMAIL=`gcloud sql instances describe $SQLNAME | grep serviceAccountEmailAddress | cut -d' ' -f2-`
 			gsutil acl ch -u $SAEMAIL:W gs://$BUCKETNAME
 			gcloud sql export sql $SQLNAME gs://$BUCKETNAME/sqldumpfile.gz --database=$DBNAME

@@ -1,5 +1,5 @@
 Creating Cloud SQL instance...
 .................done.
-Created [https://www.googleapis.com/sql/v1beta4/projects/cs2-jari-wynants/instances/sqlinstance4].
+Created [https://www.googleapis.com/sql/v1beta4/projects/cs2-jari-wynants/instances/sqlinstance7].
 NAME          DATABASE_VERSION  LOCATION        TIER         PRIMARY_ADDRESS  PRIVATE_ADDRESS  STATUS
-sqlinstance4  MYSQL_5_7         europe-west1-d  db-g1-small  35.205.81.39     -                RUNNABLE
+sqlinstance7  MYSQL_5_7         europe-west1-b  db-g1-small  35.205.69.210    -                RUNNABLE
