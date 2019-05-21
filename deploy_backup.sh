@@ -6,59 +6,49 @@
 #		-da or --deleteall:	deletes server, db, firewall rules, reserved IP addresses and storage bucket
 #Requirements:	gcloud installed, mysql-client installed
 
-server_ip=0
-db_password=""
-reserved_ip_address=""
-server_name=deploymentserver
-server_type=g1-small
-sql_name=sqlinstance8
-zone=europe-west1-b
-sql_tier=db-g1-small
-region=europe-west1
-bucket_name=coi-burgers2
-db_name=coidb
+SERVERIP=0
+
+RESERVED_IP_ADDRESS=""
+SERVERNAME=deploymentserver
+SERVERTYPE=g1-small
+SQLNAME=sqlinstance8
+ZONE=europe-west1-b
+SQLTIER=db-g1-small
+REGION=europe-west1
+BUCKETNAME=coi-burgers2
+DBNAME=coidb
 
 add_image(){
 	echo "Server is being set up..."
-	if [[ -z $reserved_ip_address ]]; then
+	if [[ -z $RESERVED_IP_ADDRESS ]]; then
 		if [[ -z `gcloud compute addresses list --filter "coi-address"` ]]; then
 			echo "New IP address is being created..."
-			gcloud compute addresses create coi-address --region=$region
+			gcloud compute addresses create coi-address --region=$REGION
 		fi
-		export reserved_ip_address=`gcloud compute addresses list --filter "coi-address" | grep -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}"` 
+		export RESERVED_IP_ADDRESS=`gcloud compute addresses list --filter "coi-address" | grep -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}"` 
 	fi
 	
-	if [[ -z `gcloud compute firewall-rules list | grep "tcp:80"` ]]; then
+	if [[ -z `gcloud compute firewall-rules list | grep "http"` ]]; then
 		echo ""
-		echo "Creating firewall-rules (tcp:80, tcp:8080)"
+		echo "Creating firewall-rules..."
 		gcloud compute firewall-rules create http80 --allow=tcp:80 --target-tags=ds --quiet
 		gcloud compute firewall-rules create http8080 --allow=tcp:8080 --target-tags=ds --quiet
 	fi
 
-	if [[ -z `gcloud compute firewall-rules list | grep "tcp:443"` ]]; then
-		echo "Create firewall-rules (tcp:443)"
-		gcloud compute firewall-rules create http443 --allow=tcp:443 --target-tags=ds --quiet
-	fi
-
-	if [[ -z `gcloud compute firewall-rules list | grep "tcp:5000"` ]]; then
-		echo "Creating firewall-rules (tcp:5000)"
+	if [[ -z `gcloud compute firewall-rules list | grep "html"` ]]; then
 		gcloud compute firewall-rules create html5000 --allow=tcp:5000 --target-tags=ds --quiet
-	fi
-
-	if [[ -z `gcloud compute firewall-rules list | grep "tcp:1883"` ]]; then
-		echo "Creating firewall-rules (tcp:1883)"
-		gcloud compute firewall-rules create mqtt1883 --allow=tcp:1883 --target-tags=ds --quiet
+		gcloud compute firewall-rules create html5001 --allow=tcp:5001 --target-tags=ds --quiet
 	fi
 
 	echo ""
 	echo "SQL instance is being created..."
-        #gcloud sql instances create $sql_name --tier=$sql_tier --region=$region --backup-start-time 00:00 --authorized-networks=$reserved_ip_address &> $HOME/coi-git/deploy.log
+        #gcloud sql instances create $SQLNAME --tier=$SQLTIER --region=$REGION --backup-start-time 00:00 --authorized-networks=$RESERVED_IP_ADDRESS &> $HOME/coi-git/deploy.log
 	sleep 5
-	sql_ip="`gcloud sql instances list | awk '{ if(NR==2){ print $5; } }'`"
+	SQLIP="`gcloud sql instances list | awk '{ if(NR==2){ print $5; } }'`"
 	echo ""
 	echo "Compute engine is being set up..."
 
-	gcloud compute instances create $server_name --machine-type=$server_type --image-project=ubuntu-os-cloud --image-family=ubuntu-1804-lts --zone=$zone --address=$reserved_ip_address --tags=ds --metadata startup-script="
+	gcloud compute instances create $SERVERNAME --machine-type=$SERVERTYPE --image-project=ubuntu-os-cloud --image-family=ubuntu-1804-lts --zone=$ZONE --address=$RESERVED_IP_ADDRESS --tags=ds --metadata startup-script="
 	#!/bin/bash
 
 	#Install dotnetcore runtime for deployment of .NET application
@@ -106,7 +96,7 @@ add_image(){
 	#Clone git project to server
 	#---------------------------
 	git clone -b depwithsecrets --single-branch https://874a9ff07ffba083c990c89d384408ba6f0f844e@github.com/kdgtg97/city-of-ideas.git &>> /startup.log
-	sed -i \"s/server=;port=3306;database=city-of-ideas-db;user=wortel;password=root/server=$sql_ip;port=3306;database=$db_name;user=root;password=$db_password/g\" /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
+	sed -i \"s/server=;port=3306;database=city-of-ideas-db;user=wortel;password=root/server=$SQLIP;port=3306;database=$DBNAME;user=root;password=burgers/g\" /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
 	sed -i \"s/optionsBuilder.UseSqlite/\\/\\/optionsBuilder.UseSqlite/g\" /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
 	sed -i \"s/\\/\\/            optionsBuilder.UseMySql/              optionsBuilder.UseMySql/g\" /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
 	
@@ -123,7 +113,7 @@ add_image(){
 			ServerName cityofideas.ga
 			ServerAlias www.cityofideas.ga
 			
-			#Redirect / https://$reserved_ip_address/
+			#Redirect / https://$RESERVED_IP_ADDRESS/
 			ProxyPreserveHost On
 			ProxyPass / http://127.0.0.1:5000/
 			ProxyPassReverse / http://127.0.0.1:5000/
@@ -187,7 +177,7 @@ add_image(){
         #HTTPS certificate aanvragen
         #---------------------------
         mkdir /etc/apache2/ssl &>> /startup.log
-        openssl req -x509 -newkey rsa:2048 -keyout /etc/apache2/ssl/apache.key -out /etc/apache2/ssl/apache.crt -days 365 -nodes -subj '/C=BE/ST=Antwerp/L=Antwerp/O=KdG/OU=Toegepaste informatica/CN=$reserved_ip_address' &>> /startup.log	
+        openssl req -x509 -newkey rsa:2048 -keyout /etc/apache2/ssl/apache.key -out /etc/apache2/ssl/apache.crt -days 365 -nodes -subj '/C=BE/ST=Antwerp/L=Antwerp/O=KdG/OU=Toegepaste informatica/CN=$RESERVED_IP_ADDRESS' &>> /startup.log	
 	service apache2 restart &>> /startup.log
 	
 	#systemctl enable kestrel-coi.service &>> /startup.log
@@ -207,22 +197,22 @@ add_image(){
 
 	echo ""
 	echo "Configuring SQL instance..."
-	#gcloud sql databases create $db_name --instance=$sql_name
-	#gcloud sql users set-password root --host=% --instance=$sql_name --password=$db_password
+	#gcloud sql databases create $DBNAME --instance=$SQLNAME
+	#gcloud sql users set-password root --host=% --instance=$SQLNAME --password=burgers
 	echo ""
 	echo "Storage bucket wordt aangemaakt..."
-	#gsutil mb gs://$bucket_name &>> $HOME/coi-git/deploy.log
+	#gsutil mb gs://$BUCKETNAME &>> $HOME/coi-git/deploy.log
 }
 
 delete_image(){
 	echo ""
-	read -p "Wilt u de databank exporteren? (Y/n): " yn
+	read -p "Wilt u de databank exporteren? [Y/n]: " yn
 	case $yn in
 		[Yy]* )
-			gsutil rm gs://$bucket_name/*
-		       	sa_email=`gcloud sql instances describe $sql_name | grep serviceAccountEmailAddress | cut -d' ' -f2-`
-			gsutil acl ch -u $sa_email:W gs://$bucket_name
-			gcloud sql export sql $sql_name gs://$bucket_name/sqldumpfile.gz --database=$db_name
+			gsutil rm gs://$BUCKETNAME/*
+		       	SAEMAIL=`gcloud sql instances describe $SQLNAME | grep serviceAccountEmailAddress | cut -d' ' -f2-`
+			gsutil acl ch -u $SAEMAIL:W gs://$BUCKETNAME
+			gcloud sql export sql $SQLNAME gs://$BUCKETNAME/sqldumpfile.gz --database=$DBNAME
 			;;
 		[Nn]* ) 
 			;;
@@ -232,10 +222,10 @@ delete_image(){
 	esac
 	echo ""
 	echo "Server wordt verwijderd..."
-        gcloud compute instances delete $server_name
+        gcloud compute instances delete $SERVERNAME
         echo ""
 	echo "SQL instance wordt verwijderd..."
-        gcloud sql instances delete $sql_name
+        gcloud sql instances delete $SQLNAME
 
 		
 }
@@ -244,44 +234,36 @@ import_db(){
 	add_image
 	echo ""
 	echo "Database wordt geïmporteerd..."
-      	sa_email=`gcloud sql instances describe $sql_name | grep serviceAccountEmailAddress | cut -d' ' -f2-`
-	gsutil acl ch -u $sa_email:W gs://$bucket_name
-	gsutil acl ch -u $sa_email:R gs://$bucket_name/sqldumpfile.gz 
-	gcloud sql import sql $sql_name gs://$bucket_name/sqldumpfile.gz --database=$db_name
+      	SAEMAIL=`gcloud sql instances describe $SQLNAME | grep serviceAccountEmailAddress | cut -d' ' -f2-`
+	gsutil acl ch -u $SAEMAIL:W gs://$BUCKETNAME
+	gsutil acl ch -u $SAEMAIL:R gs://$BUCKETNAME/sqldumpfile.gz 
+	gcloud sql import sql $SQLNAME gs://$BUCKETNAME/sqldumpfile.gz --database=$DBNAME
 }
 
 delete_all(){
 	delete_image
+	#TODO "Gereserveerd IP adres en storage bucket wordt verwijderd..."	
 	echo ""
 	echo "Bucket wordt verwijderd..."
-	gsutil rm -r gs://$bucket_name &>> $HOME/coi-git/deploy.log
+	gsutil rm -r gs://$BUCKETNAME &>> $HOME/coi-git/deploy.log
 	echo ""
 	echo "Reserved IP addresses are deleted..."
-	gcloud compute addresses delete coi-address --region=$region
+	gcloud compute addresses delete coi-address --region=$REGION
 	echo ""
 	echo "Firewall rules are deleted..."
 	gcloud compute firewall-rules delete html5000 html5001 http80 http8080
 }
 
-#help function
+#help functie
 if [[ "$1" == "-h" || "$1" == "--help" || $# -ge 2 ]]; then
 	echo "Usage: deploy.sh (-i/-d/-da)"
 	echo "Example: 'deploy.sh -i' will create linux server instance, cloud SQL db, Cloud Storage bucket and import db from storage bucket"
-	exit 1
+	exit 0
 fi
 
-#check if gcloud is installed
-error_message="gcloud is not installed on your machine, cannot proceed."
-command -v gcloud > /dev/null || echo $error_message
-command -v gcloud > /dev/null || exit 1
 if [[ $# -eq 0 ]]; then
 #Create Linux VM instance, SQL instance, firewall rule
-	while [[ -z $db_password ]]; do
-		read -p "Enter password (will be used to create database, cannot be empty):" -s db_password
-		echo ""
-	done
-	echo "$db_password"
-	#add_image
+	add_image
 fi
 
 if [[ "$1" == "-d" ]] || [[ "$1" == "--delete" ]]; then

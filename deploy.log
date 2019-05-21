@@ -1,5 +1,3 @@
 Creating Cloud SQL instance...
-.................done.
-Created [https://www.googleapis.com/sql/v1beta4/projects/cs2-jari-wynants/instances/sqlinstance7].
-NAME          DATABASE_VERSION  LOCATION        TIER         PRIMARY_ADDRESS  PRIVATE_ADDRESS  STATUS
-sqlinstance7  MYSQL_5_7         europe-west1-b  db-g1-small  35.205.69.210    -                RUNNABLE
+..................failed.
+ERROR: (gcloud.sql.instances.create) Operation https://www.googleapis.com/sql/v1beta4/projects/cs2-jari-wynants/operations/6e8fa63f-b5fa-457b-bc14-e253a015b1f6 is taking longer than expected. You can continue waiting for the operation by running `gcloud beta sql operations wait --project cs2-jari-wynants 6e8fa63f-b5fa-457b-bc14-e253a015b1f6`
