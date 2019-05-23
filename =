@@ -1,2 +1,0 @@
-sudo sed 's/server=;port=3306;database=city-of-ideas-db;user=wortel;password=root/server=0..0.0;port=3306;database=sqlinstance3;user=root;password=burgers/g' /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
-
