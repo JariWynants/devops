@@ -105,11 +105,12 @@ add_image(){
 
 	#Clone git project to server
 	#---------------------------
-	git clone -b depwithsecrets --single-branch https://874a9ff07ffba083c990c89d384408ba6f0f844e@github.com/kdgtg97/city-of-ideas.git &>> /startup.log
+	git clone -b ConfigChangesDeploy --single-branch https://874a9ff07ffba083c990c89d384408ba6f0f844e@github.com/kdgtg97/city-of-ideas.git &>> /startup.log
 	sed -i \"s/server=;port=3306;database=city-of-ideas-db;user=wortel;password=root/server=$sql_ip;port=3306;database=$db_name;user=root;password=$db_password/g\" /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
 	sed -i \"s/optionsBuilder.UseSqlite/\\/\\/optionsBuilder.UseSqlite/g\" /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
 	sed -i \"s/\\/\\/            optionsBuilder.UseMySql/              optionsBuilder.UseMySql/g\" /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
-	
+	#sed -i \"s/CityOfIdeasDbInitializer.Initialize(this true)/CityOfIdeasDbInitializer.Initialize(this)/g\" /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
+
 	#Apache installeren (reverse proxy)
 	#----------------------------------
 	apt-get -y install apache2 &>> /startup.log
@@ -187,24 +188,32 @@ add_image(){
         #HTTPS certificate aanvragen
         #---------------------------
         mkdir /etc/apache2/ssl &>> /startup.log
+        mkdir /etc/apache2/ssl &>> /startup.log
         openssl req -x509 -newkey rsa:2048 -keyout /etc/apache2/ssl/apache.key -out /etc/apache2/ssl/apache.crt -days 365 -nodes -subj '/C=BE/ST=Antwerp/L=Antwerp/O=KdG/OU=Toegepaste informatica/CN=$reserved_ip_address' &>> /startup.log	
 	service apache2 restart &>> /startup.log
 	
 	#systemctl enable kestrel-coi.service &>> /startup.log
 	#systemctl start kestrel-coi.service &>> /startup.log
 
-	export DOTNET_USER_SECRETS_FALLBACK_DIR=/city-of-ideas/COI.UI-MVC/
-	echo \"\$DOTNET_USER_SECRETS_FALLBACK_DIR\" &>> /startup.log
-        (cd /city-of-ideas/COI.UI-MVC/; dotnet user-secrets set \"Authentication:Google:ClientId\" \"355723272104-8uddpjediv7gmc9kr3mboduv60atvo7n.apps.googleusercontent.com\") &>> /startup.log
-        (cd /city-of-ideas/COI.UI-MVC/; dotnet user-secrets set \"Authentication:Google:ClientSecret\" \"RvmDaMohNqHCgc9IsF0BUsrO\") &>> /startup.log
-        (cd /city-of-ideas/COI.UI-MVC/; dotnet user-secrets set \"Authentication:Facebook:AppId 300003197602458)
-        (cd /city-of-ideas/COI.UI-MVC/; dotnet user-secrets set \"Authentication:Facebook:AppSecret fe029679748a1f9fc6f8841898a31383)
+	#export DOTNET_USER_SECRETS_FALLBACK_DIR=/city-of-ideas/COI.UI-MVC/
+	#echo \"\$DOTNET_USER_SECRETS_FALLBACK_DIR\" &>> /startup.log
+        #(cd /city-of-ideas/COI.UI-MVC/; dotnet user-secrets set \"Authentication:Google:ClientId\" \"355723272104-8uddpjediv7gmc9kr3mboduv60atvo7n.apps.googleusercontent.com\") &>> /startup.log
+        #(cd /city-of-ideas/COI.UI-MVC/; dotnet user-secrets set \"Authentication:Google:ClientSecret\" \"RvmDaMohNqHCgc9IsF0BUsrO\") &>> /startup.log
+        #(cd /city-of-ideas/COI.UI-MVC/; dotnet user-secrets set \"Authentication:Facebook:AppId 300003197602458)
+        #(cd /city-of-ideas/COI.UI-MVC/; dotnet user-secrets set \"Authentication:Facebook:AppSecret fe029679748a1f9fc6f8841898a31383)
 
+	echo \"FINISHED\" &>> /startup.log
 	#nohup dotnet /var/coi/COI.UI-MVC.dll --urls=http://*:5000 &>> /startup.log 
 	nohup dotnet run --project=/city-of-ideas/COI.UI-MVC/COI.UI-MVC.csproj --urls=http://*:5000 &>> /startup.log &
 	
-	" &> $HOME/coi-git/deployip.log
-
+" &> $HOME/coi-git/deployip.log
+	
+	while [[ ! `gcloud compute ssh deploymentserver --command="cat /startup.log | grep FINISHED"` ]]; do
+		sleep 5
+		echo "Setting up..."
+	done
+	gcloud compute ssh deploymentserver --command="nohup dotnet run --project=/city-of-ideas/COI.UI-MVC/COI.UI-MVC.csproj --urls=http://*:5000"
+	
 	echo ""
 	echo "Configuring SQL instance..."
 	#gcloud sql databases create $db_name --instance=$sql_name
@@ -263,6 +272,11 @@ delete_all(){
 	gcloud compute firewall-rules delete html5000 html5001 http80 http8080
 }
 
+
+#####################################################
+################### SCRIPT START ####################
+#####################################################
+
 #help function
 if [[ "$1" == "-h" || "$1" == "--help" || $# -ge 2 ]]; then
 	echo "Usage: deploy.sh (-i/-d/-da)"
@@ -280,8 +294,7 @@ if [[ $# -eq 0 ]]; then
 		read -p "Enter password (will be used to create database, cannot be empty):" -s db_password
 		echo ""
 	done
-	echo "$db_password"
-	#add_image
+	add_image
 fi
 
 if [[ "$1" == "-d" ]] || [[ "$1" == "--delete" ]]; then
@@ -294,7 +307,3 @@ if [[ "$1" == "-i" ]] || [[ "$1" == "--insert" ]]; then
 	import_db
 fi
 
-if [[ "$1" == "-da" ]] || [[ "$1" == "--deleteall" ]]; then
-#delete_image + reserved IP addresses + storage bucket
-	delete_all 
-fi
