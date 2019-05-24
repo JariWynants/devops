@@ -77,19 +77,19 @@ add_image(){
 	#Install Moqsuitto MQTT Broker for connection with LoRa
 	#------------------------------------------------------
 	apt-add-repository ppa:mosquitto-dev/mosquitto-ppa &>> /startup.log
-	#apt-get -y install mosquitto &>> /startup.log
-	#apt-get -y install mosquitto-clients &>> /startup.log
+	apt-get -y install mosquitto &>> /startup.log
+	apt-get -y install mosquitto-clients &>> /startup.log
 	
-	#touch /etc/mosquitto/mosquitto.conf
-	#cat > \"/etc/mosquitto/mosquitto.conf\" <<-EOF
-	#	pid_file /var/run/mosquitto.pid
-	#	persistence true
-	#	persistence_location /var/lib/mosquitto
-	#	log_dest file /var/log/mosquitto/mosquitto.log
-	#	allow_anonymous false
+	touch /etc/mosquitto/mosquitto.conf
+	cat > \"/etc/mosquitto/mosquitto.conf\" <<-EOF
+		pid_file /var/run/mosquitto.pid
+		persistence true
+		persistence_location /var/lib/mosquitto
+		log_dest file /var/log/mosquitto/mosquitto.log
+		allow_anonymous false
 	#	password_file /etc/mosquitto/pwfile
-	#	listener 1883
-	#EOF
+		listener 1883
+	EOF
 	#mosquitto_passwd -b -c /etc/mosquitto/pwfile deburgers root
 
 	#Install nodejs & npm
@@ -106,7 +106,6 @@ add_image(){
 	git clone -b testdatadeploy --single-branch https://874a9ff07ffba083c990c89d384408ba6f0f844e@github.com/kdgtg97/city-of-ideas.git &>> /startup.log
 	sed -i \"s/Data Source=CityOfIdeasDb/server=$sql_ip;port=3306;database=$db_name;user=root;password=$db_password/g\" /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
 	sed -i \"s/optionsBuilder.UseSqlite/optionsBuilder.UseMySql/g\" /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
-	#sed -i \"s/\\/\\/            optionsBuilder.UseMySql/              optionsBuilder.UseMySql/g\" /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
 	sed -i \"s/true/false/g\" /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
 
 	#Apache installeren (reverse proxy)
@@ -159,9 +158,6 @@ add_image(){
 	(cd /city-of-ideas/COI.UI-MVC/; npm install) &>> /startup.log
 	echo \"------------ NPM RUN BUILD -------------\" &>> /startup.log
 	(cd /city-of-ideas/COI.UI-MVC/; npm run build) &>> /startup.log
-	echo \"------------- DOTNET PUBLISH ---------------\" &>> /startup.log
-	#cd /city-of-ideas/COI.UI-MVC/ && dotnet publish &>> /startup.log
-	#cp -r /city-of-ideas/COI.UI-MVC/bin/Debug/netcoreapp2.2/publish/ /var/coi &>> /startup.log
 	
         #HTTPS certificate aanvragen
         #---------------------------
@@ -174,14 +170,6 @@ add_image(){
 	
 " &> $HOME/coi-git/deployip.log
 
-	#sleep 10
-	#while [[ ! `gcloud compute ssh deploymentserver --command="cat /startup.log | grep FINISHED"` ]]; do
-	#	sleep 5
-	#	echo | set /p "Setting up."
-	#	echo | set /p "Setting up.."
-	#	echo | set /p "Setting up..."
-	#done
-	
 	echo ""
 	echo "Configuring SQL instance..."
 	gcloud sql databases create $db_name --instance=$sql_name
