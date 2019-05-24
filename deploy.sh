@@ -11,7 +11,7 @@ db_password=""
 reserved_ip_address=""
 server_name=deploymentserver
 server_type=g1-small
-sql_name=sqlinstance8
+sql_name=sqlinstance9
 zone=europe-west1-b
 sql_tier=db-g1-small
 region=europe-west1
@@ -52,7 +52,7 @@ add_image(){
 
 	echo ""
 	echo "SQL instance is being created..."
-        #gcloud sql instances create $sql_name --tier=$sql_tier --region=$region --backup-start-time 00:00 --authorized-networks=$reserved_ip_address &> $HOME/coi-git/deploy.log
+        gcloud sql instances create $sql_name --tier=$sql_tier --region=$region --backup-start-time 00:00 --authorized-networks=$reserved_ip_address &> $HOME/coi-git/deploy.log
 	sleep 5
 	sql_ip="`gcloud sql instances list | awk '{ if(NR==2){ print $5; } }'`"
 	echo ""
@@ -76,8 +76,6 @@ add_image(){
 
 	#Install Moqsuitto MQTT Broker for connection with LoRa
 	#------------------------------------------------------
-	#TODO: open port 1883 to allow connection (in deploy.sh)
-
 	apt-add-repository ppa:mosquitto-dev/mosquitto-ppa &>> /startup.log
 	#apt-get -y install mosquitto &>> /startup.log
 	#apt-get -y install mosquitto-clients &>> /startup.log
@@ -99,17 +97,17 @@ add_image(){
 	apt-get -y install nodejs
 	apt-get -y install npm
 
-	#Install mysql-client
+	#Install mysql-client (optional - to check db connection from server)
 	#--------------------
 	#apt-get -y install mysql-client
 
 	#Clone git project to server
 	#---------------------------
-	git clone -b ConfigChangesDeploy --single-branch https://874a9ff07ffba083c990c89d384408ba6f0f844e@github.com/kdgtg97/city-of-ideas.git &>> /startup.log
-	sed -i \"s/server=;port=3306;database=city-of-ideas-db;user=wortel;password=root/server=$sql_ip;port=3306;database=$db_name;user=root;password=$db_password/g\" /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
-	sed -i \"s/optionsBuilder.UseSqlite/\\/\\/optionsBuilder.UseSqlite/g\" /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
-	sed -i \"s/\\/\\/            optionsBuilder.UseMySql/              optionsBuilder.UseMySql/g\" /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
-	#sed -i \"s/CityOfIdeasDbInitializer.Initialize(this true)/CityOfIdeasDbInitializer.Initialize(this)/g\" /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
+	git clone -b testdatadeploy --single-branch https://874a9ff07ffba083c990c89d384408ba6f0f844e@github.com/kdgtg97/city-of-ideas.git &>> /startup.log
+	sed -i \"s/Data Source=CityOfIdeasDb/server=$sql_ip;port=3306;database=$db_name;user=root;password=$db_password/g\" /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
+	sed -i \"s/optionsBuilder.UseSqlite/optionsBuilder.UseMySql/g\" /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
+	#sed -i \"s/\\/\\/            optionsBuilder.UseMySql/              optionsBuilder.UseMySql/g\" /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
+	sed -i \"s/true/false/g\" /city-of-ideas/DAL/EF/CityOfIdeasDbContext.cs
 
 	#Apache installeren (reverse proxy)
 	#----------------------------------
@@ -165,67 +163,37 @@ add_image(){
 	#cd /city-of-ideas/COI.UI-MVC/ && dotnet publish &>> /startup.log
 	#cp -r /city-of-ideas/COI.UI-MVC/bin/Debug/netcoreapp2.2/publish/ /var/coi &>> /startup.log
 	
-	#service file instellen
-#	cat > \"/etc/systemd/system/kestrel-coi.service\" <<-EO
-#		[Unit]
-#		Description=City of Ideas dotnet core website running on Ubuntu 18.04
-#
-#		[Service]
-#		WorkingDirectory=/var/coi/
-#		ExecStart=/usr/bin/dotnet /var/coi/COI.UI-MVC.dll
-#		Restart=always
-#		RestartSec=10
-#		SyslogIdentifier=dotnet-coi
-#		User=apache
-#		Environment=ASPNETCORE_ENVIRONMENT=Production
-#
-#		[Install]	
-#		WantedBy=multi-user.target
-#	EO
-
-	echo \"help2\" &>> /startup.log
-
         #HTTPS certificate aanvragen
         #---------------------------
-        mkdir /etc/apache2/ssl &>> /startup.log
         mkdir /etc/apache2/ssl &>> /startup.log
         openssl req -x509 -newkey rsa:2048 -keyout /etc/apache2/ssl/apache.key -out /etc/apache2/ssl/apache.crt -days 365 -nodes -subj '/C=BE/ST=Antwerp/L=Antwerp/O=KdG/OU=Toegepaste informatica/CN=$reserved_ip_address' &>> /startup.log	
 	service apache2 restart &>> /startup.log
 	
-	#systemctl enable kestrel-coi.service &>> /startup.log
-	#systemctl start kestrel-coi.service &>> /startup.log
-
-	#export DOTNET_USER_SECRETS_FALLBACK_DIR=/city-of-ideas/COI.UI-MVC/
-	#echo \"\$DOTNET_USER_SECRETS_FALLBACK_DIR\" &>> /startup.log
-        #(cd /city-of-ideas/COI.UI-MVC/; dotnet user-secrets set \"Authentication:Google:ClientId\" \"355723272104-8uddpjediv7gmc9kr3mboduv60atvo7n.apps.googleusercontent.com\") &>> /startup.log
-        #(cd /city-of-ideas/COI.UI-MVC/; dotnet user-secrets set \"Authentication:Google:ClientSecret\" \"RvmDaMohNqHCgc9IsF0BUsrO\") &>> /startup.log
-        #(cd /city-of-ideas/COI.UI-MVC/; dotnet user-secrets set \"Authentication:Facebook:AppId 300003197602458)
-        #(cd /city-of-ideas/COI.UI-MVC/; dotnet user-secrets set \"Authentication:Facebook:AppSecret fe029679748a1f9fc6f8841898a31383)
-
 	echo \"FINISHED\" &>> /startup.log
-	#nohup dotnet /var/coi/COI.UI-MVC.dll --urls=http://*:5000 &>> /startup.log 
 	nohup dotnet run --project=/city-of-ideas/COI.UI-MVC/COI.UI-MVC.csproj --urls=http://*:5000 &>> /startup.log &
 	
 " &> $HOME/coi-git/deployip.log
-	
-	while [[ ! `gcloud compute ssh deploymentserver --command="cat /startup.log | grep FINISHED"` ]]; do
-		sleep 5
-		echo "Setting up..."
-	done
-	gcloud compute ssh deploymentserver --command="nohup dotnet run --project=/city-of-ideas/COI.UI-MVC/COI.UI-MVC.csproj --urls=http://*:5000"
+
+	#sleep 10
+	#while [[ ! `gcloud compute ssh deploymentserver --command="cat /startup.log | grep FINISHED"` ]]; do
+	#	sleep 5
+	#	echo | set /p "Setting up."
+	#	echo | set /p "Setting up.."
+	#	echo | set /p "Setting up..."
+	#done
 	
 	echo ""
 	echo "Configuring SQL instance..."
-	#gcloud sql databases create $db_name --instance=$sql_name
-	#gcloud sql users set-password root --host=% --instance=$sql_name --password=$db_password
+	gcloud sql databases create $db_name --instance=$sql_name
+	gcloud sql users set-password root --host=% --instance=$sql_name --password=$db_password
 	echo ""
-	echo "Storage bucket wordt aangemaakt..."
-	#gsutil mb gs://$bucket_name &>> $HOME/coi-git/deploy.log
+	echo "Creating storage bucket..."
+	gsutil mb gs://$bucket_name &>> $HOME/coi-git/deploy.log
 }
 
 delete_image(){
 	echo ""
-	read -p "Wilt u de databank exporteren? (Y/n): " yn
+	read -p "Do you want to export the database? (Y/n): " yn
 	case $yn in
 		[Yy]* )
 			gsutil rm gs://$bucket_name/*
@@ -236,14 +204,12 @@ delete_image(){
 		[Nn]* ) 
 			;;
 		* ) 
-			echo "Gelieve Yes of No te antwoorden."
+			echo "Please answer Y or N."
 			;;
 	esac
 	echo ""
-	echo "Server wordt verwijderd..."
         gcloud compute instances delete $server_name
-        echo ""
-	echo "SQL instance wordt verwijderd..."
+        echo "SQL server being deleted..."
         gcloud sql instances delete $sql_name
 
 		
@@ -252,7 +218,7 @@ delete_image(){
 import_db(){
 	add_image
 	echo ""
-	echo "Database wordt geïmporteerd..."
+	echo "Database is being imported..."
       	sa_email=`gcloud sql instances describe $sql_name | grep serviceAccountEmailAddress | cut -d' ' -f2-`
 	gsutil acl ch -u $sa_email:W gs://$bucket_name
 	gsutil acl ch -u $sa_email:R gs://$bucket_name/sqldumpfile.gz 
@@ -262,7 +228,7 @@ import_db(){
 delete_all(){
 	delete_image
 	echo ""
-	echo "Bucket wordt verwijderd..."
+	echo "Bucket is being deleted..."
 	gsutil rm -r gs://$bucket_name &>> $HOME/coi-git/deploy.log
 	echo ""
 	echo "Reserved IP addresses are deleted..."
